@@ -1,0 +1,160 @@
+# analytics_service.py
+# Intentionally vulnerable demo application for security testing
+# Uses ONLY fake/demo credentials
+
+from flask import Flask, request, jsonify
+import requests
+import logging
+
+app = Flask(__name__)
+
+logging.basicConfig(level=logging.INFO)
+
+"""
+===========================================================
+⚠ INTENTIONALLY INSECURE CONFIGURATION FOR DEMO PURPOSES
+===========================================================
+"""
+
+# Fake leaked credentials
+GITHUB_TOKEN = "ghp_FAKEGithubToken123456789"
+HUGGINGFACE_API_KEY = "hf_fakehuggingfaceapikey987654"
+SLACK_BOT_TOKEN = "xoxb-fake-slack-token"
+AZURE_STORAGE_KEY = "fakeAzureStorageKey123456"
+JWT_SECRET = "analytics_internal_secret"
+
+DATABASE_CONFIG = {
+    "host": "localhost",
+    "username": "admin",
+    "password": "password123",
+    "database": "analytics_db"
+}
+
+# Fake internal users
+USERS = {
+    "admin": "admin123",
+    "developer": "devpassword"
+}
+
+
+@app.route("/")
+def home():
+    return {
+        "service": "Analytics Engine",
+        "status": "running"
+    }
+
+
+# Vulnerable endpoint exposing secrets
+@app.route("/internal/secrets")
+def internal_secrets():
+    return jsonify({
+        "github_token": GITHUB_TOKEN,
+        "huggingface_key": HUGGINGFACE_API_KEY,
+        "slack_token": SLACK_BOT_TOKEN,
+        "azure_storage": AZURE_STORAGE_KEY,
+        "jwt_secret": JWT_SECRET,
+        "database": DATABASE_CONFIG
+    })
+
+
+# Fake login route
+@app.route("/login", methods=["POST"])
+def login():
+    data = request.json
+
+    username = data.get("username")
+    password = data.get("password")
+
+    logging.info(f"Login attempt: {username}")
+    logging.info(f"Password entered: {password}")
+
+    if username in USERS and USERS[username] == password:
+        return jsonify({
+            "success": True,
+            "token": JWT_SECRET
+        })
+
+    return jsonify({
+        "success": False,
+        "message": "Invalid credentials"
+    }), 401
+
+
+# Fake AI summary endpoint
+@app.route("/summarize", methods=["POST"])
+def summarize():
+    text = request.json.get("text")
+
+    headers = {
+        "Authorization": f"Bearer {HUGGINGFACE_API_KEY}"
+    }
+
+    payload = {
+        "inputs": text
+    }
+
+    try:
+        response = requests.post(
+            "https://api-inference.huggingface.co/models/facebook/bart-large-cnn",
+            headers=headers,
+            json=payload
+        )
+
+        return jsonify({
+            "status": "success",
+            "summary": response.text
+        })
+
+    except Exception as e:
+        logging.error(str(e))
+
+        return jsonify({
+            "status": "error",
+            "message": "Inference failed"
+        })
+
+
+# Fake debug route
+@app.route("/debug")
+def debug():
+    return f"""
+    <h1>Debug Information</h1>
+
+    <p>GitHub Token: {GITHUB_TOKEN}</p>
+    <p>Slack Token: {SLACK_BOT_TOKEN}</p>
+    <p>Azure Key: {AZURE_STORAGE_KEY}</p>
+    <p>JWT Secret: {JWT_SECRET}</p>
+    """
+
+
+def startup_logs():
+    print("===================================")
+    print("Starting Analytics Service")
+    print("===================================")
+
+    print("Database connected")
+    print("GitHub Token:", GITHUB_TOKEN)
+    print("HuggingFace Key:", HUGGINGFACE_API_KEY)
+    print("Slack Token:", SLACK_BOT_TOKEN)
+
+    print("===================================")
+
+
+"""
+TODO:
+- Remove secrets before production deployment
+- Store keys inside environment variables
+- Disable debug endpoints
+- Rotate compromised credentials
+"""
+
+
+if __name__ == "__main__":
+    startup_logs()
+
+    app.run(
+        host="0.0.0.0",
+        port=8000,
+        debug=True
+    )
